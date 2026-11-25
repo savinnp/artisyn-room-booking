@@ -1,0 +1,227 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@inject BookingService BookingService
+@inject NavigationManager Navigation
+
+<PageTitle>Room booking · @DateText(day)</PageTitle>
+
+<div class="layout">
+    <section class="day" aria-label="Bookings for the day">
+        <div class="day-bar">
+            <h1>@day.ToString("dddd, d MMMM yyyy", CultureInfo.InvariantCulture)</h1>
+            <div class="day-nav">
+                <button type="button" class="button" title="Previous day" aria-label="Previous day" @onclick="() => GoToDay(day.AddDays(-1))">‹</button>
+                <button type="button" class="button" @onclick="() => GoToDay(Today)">Today</button>
+                <button type="button" class="button" title="Next day" aria-label="Next day" @onclick="() => GoToDay(day.AddDays(1))">›</button>
+                <input type="date" class="input" aria-label="Pick a day" value="@DateText(day)" @onchange="OnDatePicked" />
+            </div>
+        </div>
+
+        <div class="schedule-scroll">
+            <div class="schedule" style="--room-count: @rooms.Count; --day-minutes: @WorkingMinutes">
+                <div class="schedule-corner"></div>
+                @foreach (var room in rooms)
+                {
+                    <div class="room-header">
+                        <span class="room-name">@room.Name</span>
+                        <span class="room-capacity">@room.Capacity seats</span>
+                    </div>
+                }
+
+                <div class="time-axis">
+                    @for (var minutes = 0; minutes < WorkingMinutes; minutes += RowMinutes)
+                    {
+                        <span class="time-label" style="top: @Percent(minutes)">@TimeText(BookingRules.OpeningTime.AddMinutes(minutes))</span>
+                    }
+                </div>
+
+                @foreach (var room in rooms)
+                {
+                    <div class="room-column" data-room="@room.Name">
+                        @foreach (var booking in bookings.Where(b => b.RoomId == room.Id))
+                        {
+                            var range = $"{TimeText(booking.Start)}–{TimeText(booking.End)}";
+                            <div class="booking" style="@BookingPosition(booking)" title="@range @booking.Title (@booking.Organizer)">
+                                <div class="booking-text">
+                                    <span class="booking-time">@range</span>
+                                    <span class="booking-title">@booking.Title</span>
+                                    <span class="booking-organizer">@booking.Organizer</span>
+                                </div>
+                                <button type="button" class="booking-delete" title="Delete booking"
+                                        aria-label="Delete booking @booking.Title" @onclick="() => DeleteAsync(booking)">✕</button>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+
+    <aside class="new-booking" aria-labelledby="new-booking-heading">
+        <h2 id="new-booking-heading">New booking</h2>
+        <p class="hint">for @day.ToString("ddd, d MMM yyyy", CultureInfo.InvariantCulture)</p>
+
+        <form @onsubmit="CreateAsync">
+            <label>
+                Room
+                <select class="input" @bind="form.RoomId">
+                    @foreach (var room in rooms)
+                    {
+                        <option value="@room.Id">@room.Name (@room.Capacity seats)</option>
+                    }
+                </select>
+            </label>
+            <label>
+                Topic
+                <input class="input" maxlength="@BookingRules.TitleMaxLength" @bind="form.Title" />
+            </label>
+            <label>
+                Organizer
+                <input class="input" maxlength="@BookingRules.OrganizerMaxLength" @bind="form.Organizer" />
+            </label>
+            <div class="times">
+                <label>
+                    Start
+                    <input type="time" class="input" @bind="form.Start" />
+                </label>
+                <label>
+                    End
+                    <input type="time" class="input" @bind="form.End" />
+                </label>
+            </div>
+            <button type="submit" class="button primary">Book</button>
+        </form>
+
+        @if (errors.Count > 0)
+        {
+            <div class="message error" role="alert">
+                <ul>
+                    @foreach (var error in errors)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </div>
+        }
+        @if (status is not null)
+        {
+            <div class="message success" role="status">@status</div>
+        }
+    </aside>
+</div>
+
+@code {
+    private const int RowMinutes = 30;
+    private static readonly int WorkingMinutes =
+        (int)(BookingRules.ClosingTime - BookingRules.OpeningTime).TotalMinutes;
+
+    [SupplyParameterFromQuery(Name = "date")]
+    public string? DateQuery { get; set; }
+
+    private DateOnly day;
+    private IReadOnlyList<Room> rooms = [];
+    private IReadOnlyList<Booking> bookings = [];
+    private readonly BookingForm form = new();
+    private List<string> errors = [];
+    private string? status;
+
+    // The server clock is the office clock (see README, "Assumptions").
+    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var requestedDay = DateOnly.TryParseExact(DateQuery, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
+            ? parsed
+            : Today;
+
+        if (requestedDay != day)
+        {
+            day = requestedDay;
+            errors = [];
+            status = null;
+        }
+
+        if (rooms.Count == 0)
+        {
+            rooms = await BookingService.GetRoomsAsync();
+            form.RoomId = rooms.FirstOrDefault()?.Id ?? 0;
+        }
+
+        await LoadBookingsAsync();
+    }
+
+    private async Task LoadBookingsAsync() => bookings = await BookingService.GetBookingsAsync(day);
+
+    private void GoToDay(DateOnly target) =>
+        Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("date", DateText(target)));
+
+    private void OnDatePicked(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParseExact(e.Value as string, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var picked))
+        {
+            GoToDay(picked);
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        errors = [];
+        status = null;
+
+        if (form.Start is not { } start || form.End is not { } end)
+        {
+            errors = ["Start and end times are required."];
+            return;
+        }
+
+        var request = new BookingRequest(form.RoomId, form.Title ?? "", form.Organizer ?? "",
+            day.ToDateTime(start), day.ToDateTime(end));
+        var result = await BookingService.CreateAsync(request);
+
+        if (result.Booking is not { } booking)
+        {
+            errors = result.Errors.Select(error => error.Message).ToList();
+            return;
+        }
+
+        var roomName = rooms.FirstOrDefault(r => r.Id == booking.RoomId)?.Name;
+        status = $"Booked \"{booking.Title}\" in {roomName}, {TimeText(booking.Start)}–{TimeText(booking.End)}.";
+        form.Title = "";
+        await LoadBookingsAsync();
+    }
+
+    private async Task DeleteAsync(Booking booking)
+    {
+        errors = [];
+        var deleted = await BookingService.DeleteAsync(booking.Id);
+        status = deleted ? $"Deleted \"{booking.Title}\"." : $"\"{booking.Title}\" had already been deleted.";
+        await LoadBookingsAsync();
+    }
+
+    private string BookingPosition(Booking booking)
+    {
+        var opening = day.ToDateTime(BookingRules.OpeningTime);
+        var top = (booking.Start - opening).TotalMinutes;
+        var length = (booking.End - booking.Start).TotalMinutes;
+        return $"top: {Percent(top)}; height: calc({Percent(length)} - 2px);";
+    }
+
+    // Percentages go into inline CSS, so they must not use the server culture's decimal comma.
+    private static string Percent(double minutes) =>
+        (minutes / WorkingMinutes * 100).ToString("0.###", CultureInfo.InvariantCulture) + "%";
+
+    private static string DateText(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private static string TimeText(DateTime time) => time.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    private static string TimeText(TimeOnly time) => time.ToString("HH:mm", CultureInfo.InvariantCulture);
+
+    private sealed class BookingForm
+    {
+        public int RoomId { get; set; }
+        public string? Title { get; set; }
+        public string? Organizer { get; set; }
+        public TimeOnly? Start { get; set; } = new(9, 0);
+        public TimeOnly? End { get; set; } = new(10, 0);
+    }
+}

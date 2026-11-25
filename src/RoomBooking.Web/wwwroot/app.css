@@ -1,0 +1,316 @@
+:root {
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --text: #1d2430;
+    --muted: #5d6878;
+    --line: #e4e7ec;
+    --line-strong: #c9ced6;
+    --accent: #2f5bd3;
+    --accent-text: #ffffff;
+    --booking-bg: #e6ecfb;
+    --error-bg: #fdecea;
+    --error-text: #a12b20;
+    --success-bg: #e5f4ea;
+    --success-text: #1d6b39;
+    --hour-height: 80px;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: var(--text);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+}
+
+h1:focus {
+    outline: none;
+}
+
+/* Page frame */
+
+.app-header {
+    padding: 0.75rem 1.5rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+}
+
+.app-title {
+    font-weight: 600;
+    color: var(--text);
+    text-decoration: none;
+}
+
+.app-main {
+    padding: 1.5rem;
+}
+
+.layout {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+}
+
+.day {
+    flex: 1;
+    min-width: 0;
+}
+
+@media (max-width: 900px) {
+    .layout {
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+}
+
+/* Controls */
+
+.button,
+.input {
+    font: inherit;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+}
+
+.button {
+    cursor: pointer;
+}
+
+.button:hover {
+    border-color: var(--accent);
+}
+
+.button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-text);
+}
+
+/* Day navigation */
+
+.day-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.day-bar h1 {
+    margin: 0;
+    font-size: 1.4rem;
+}
+
+.day-nav {
+    display: flex;
+    gap: 0.4rem;
+}
+
+/* Schedule: rooms are columns, time runs down the rows */
+
+.schedule-scroll {
+    overflow-x: auto;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.schedule {
+    display: grid;
+    grid-template-columns: 4rem repeat(var(--room-count), minmax(9rem, 1fr));
+    min-width: min-content;
+}
+
+.room-header {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 0.6rem;
+    border-left: 1px solid var(--line);
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.schedule-corner {
+    border-bottom: 1px solid var(--line-strong);
+}
+
+.room-name {
+    font-weight: 600;
+}
+
+.room-capacity {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.time-axis,
+.room-column {
+    position: relative;
+    height: calc(var(--hour-height) * var(--day-minutes) / 60);
+    /* Darker line every hour, lighter line every half hour. */
+    background-image:
+        linear-gradient(to bottom, var(--line-strong) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+    background-size:
+        100% var(--hour-height),
+        100% calc(var(--hour-height) / 2);
+}
+
+.room-column {
+    border-left: 1px solid var(--line);
+}
+
+.time-label {
+    position: absolute;
+    right: 0.5rem;
+    padding-top: 2px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.booking {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    margin-top: 1px;
+    display: flex;
+    gap: 0.25rem;
+    align-items: flex-start;
+    padding: 1px 2px 1px 6px;
+    overflow: hidden;
+    background: var(--booking-bg);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    line-height: 1.25;
+}
+
+.booking-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 0.4rem;
+}
+
+.booking-time {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.booking-title {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.booking-organizer {
+    color: var(--muted);
+}
+
+.booking-delete {
+    flex: none;
+    padding: 0 0.3rem;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+.booking-delete:hover {
+    background: var(--error-bg);
+    color: var(--error-text);
+}
+
+/* New booking form */
+
+.new-booking {
+    flex: none;
+    width: 19rem;
+    padding: 1rem 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+@media (max-width: 900px) {
+    .new-booking {
+        width: auto;
+    }
+}
+
+.new-booking h2 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.hint {
+    margin: 0.2rem 0 1rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.new-booking form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.new-booking label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.9rem;
+}
+
+.times {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.times label {
+    flex: 1;
+}
+
+.message {
+    margin-top: 1rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.message ul {
+    margin: 0;
+    padding-left: 1.1rem;
+}
+
+.message.error {
+    background: var(--error-bg);
+    color: var(--error-text);
+}
+
+.message.success {
+    background: var(--success-bg);
+    color: var(--success-text);
+}
+
+/* Blazor's own error UI */
+
+.blazor-error-boundary {
+    padding: 1rem;
+    background: #b32121;
+    color: white;
+}
+
+.blazor-error-boundary::after {
+    content: "An error has occurred.";
+}
